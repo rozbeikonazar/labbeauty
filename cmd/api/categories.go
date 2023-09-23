@@ -10,7 +10,7 @@ import (
 	"cosmetcab.dp.ua/internal/validator"
 )
 
-func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse multipart form data
 	err := r.ParseMultipartForm(10 << 20) // max size 10MB
 	if err != nil {
@@ -41,43 +41,39 @@ func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Requ
 	var input struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
-		URL         string `json:"url"`
 		PhotoURL    string `json:"photo_url"`
 	}
 	input.PhotoURL = "./ui/static/img" + header.Filename
 	input.Title = r.FormValue("title")
 	input.Description = r.FormValue("description")
-	input.URL = r.FormValue("url")
-	service := &data.Service{
+	category := &data.Category{
 		Title:       input.Title,
 		Description: input.Description,
-		URL:         input.URL,
 		PhotoURL:    input.PhotoURL,
 	}
 	v := validator.New()
-	if data.ValidateService(service, v); !v.Valid() {
+	if data.ValidateCategory(category, v); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 	fmt.Fprintf(w, "%+v\n", input)
 }
 
-func (app *application) showServiceHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) showCategoryHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
 		app.notFoundResponse(w, r)
 		return
 	}
 
-	service := data.Service{
+	category := data.Category{
 		ID:          id,
 		Title:       "Title",
 		Description: "Desc",
-		URL:         "url",
 		PhotoURL:    "Photo",
 	}
 
-	err = app.writeJSON(w, http.StatusOK, service, nil)
+	err = app.writeJSON(w, http.StatusOK, category, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
