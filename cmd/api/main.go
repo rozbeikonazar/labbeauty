@@ -13,6 +13,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const ImagesDir = "./ui/static/img/"
+
 type config struct {
 	port int
 	env  string
