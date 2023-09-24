@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 )
 
 func (app *application) logError(r *http.Request, err error) {
@@ -10,7 +11,10 @@ func (app *application) logError(r *http.Request, err error) {
 		method = r.Method
 		uri    = r.URL.RequestURI()
 	)
-	app.logger.Error(err.Error(), "method", method, "uri", uri)
+	_, file, line, _ := runtime.Caller(1)
+	msg := fmt.Sprintf("error occurred in file %s, line %d\n", file, line)
+
+	app.logger.Error(err.Error(), "method", method, "uri", uri, "err", msg)
 }
 
 func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any) {
@@ -46,4 +50,9 @@ func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Reques
 
 func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.Request, errors map[string]string) {
 	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
+}
+
+func (app *application) fileAlreadyExistResponse(w http.ResponseWriter, r *http.Request, filename string) {
+	message := fmt.Sprintf("file %s already exist", filename)
+	app.errorResponse(w, r, http.StatusConflict, message)
 }
