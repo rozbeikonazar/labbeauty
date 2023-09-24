@@ -25,8 +25,17 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	defer file.Close()
+
+	// check if file with that name already exists
+	_, err = os.ReadFile(ImagesDir + header.Filename)
+	// if file does not exist then we are creating new file in specified dir
+	if err == nil {
+		app.fileAlreadyExistResponse(w, r, header.Filename)
+		return
+
+	}
 	// Create new file with the same name as the uploaded file
-	dst, err := os.Create("./ui/static/img/" + header.Filename)
+	dst, err := os.Create(ImagesDir + header.Filename)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -38,12 +47,14 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Create new file with the same name as the uploaded file
+
 	var input struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		PhotoURL    string `json:"photo_url"`
 	}
-	input.PhotoURL = "./ui/static/img" + header.Filename
+	input.PhotoURL = ImagesDir + header.Filename
 	input.Title = r.FormValue("title")
 	input.Description = r.FormValue("description")
 	category := &data.Category{
