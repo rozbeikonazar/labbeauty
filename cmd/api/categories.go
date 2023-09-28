@@ -47,8 +47,6 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Create new file with the same name as the uploaded file
-
 	var input struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -57,6 +55,7 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	input.PhotoURL = ImagesDir + header.Filename
 	input.Title = r.FormValue("title")
 	input.Description = r.FormValue("description")
+
 	category := &data.Category{
 		Title:       input.Title,
 		Description: input.Description,
@@ -67,6 +66,19 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
+
+	err = app.models.Categories.Insert(category)
+	if err != nil {
+		// delete image that have been saved to static
+		os.Remove(ImagesDir + header.Filename)
+		app.dbErrorResponse(w, r, err)
+		return
+	}
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/categories/%d", category.ID))
+
+	err = app.writeJSON(w, http.StatusCreated, category, headers)
+
 	fmt.Fprintf(w, "%+v\n", input)
 }
 
