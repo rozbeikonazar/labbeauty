@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"strings"
+
+	"github.com/lib/pq"
 )
 
 func (app *application) logError(r *http.Request, err error) {
@@ -11,7 +14,7 @@ func (app *application) logError(r *http.Request, err error) {
 		method = r.Method
 		uri    = r.URL.RequestURI()
 	)
-	_, file, line, _ := runtime.Caller(1)
+	_, file, line, _ := runtime.Caller(2)
 	msg := fmt.Sprintf("error occurred in file %s, line %d\n", file, line)
 
 	app.logger.Error(err.Error(), "method", method, "uri", uri, "err", msg)
@@ -55,4 +58,18 @@ func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.
 func (app *application) fileAlreadyExistResponse(w http.ResponseWriter, r *http.Request, filename string) {
 	message := fmt.Sprintf("file %s already exist", filename)
 	app.errorResponse(w, r, http.StatusConflict, message)
+}
+
+func (app *application) dbErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	// if error contains UNIQUE violations then serve an error response
+	// with first value that caused it
+	if pgErr, ok := err.(*pq.Error); ok && pgErr.Code == "23505" {
+		detail := pgErr.Detail
+		value := strings.Split(detail, "=")[1]
+		message := fmt.Sprintf("A resource with the same identifier (%s)", value)
+		app.errorResponse(w, r, http.StatusConflict, message)
+
+	} else {
+		app.serverErrorResponse(w, r, err)
+	}
 }
