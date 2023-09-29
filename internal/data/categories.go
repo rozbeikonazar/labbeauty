@@ -2,6 +2,7 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 
 	"cosmetcab.dp.ua/internal/validator"
 )
@@ -37,7 +38,31 @@ func (c CategoryModel) Insert(category *Category) error {
 }
 
 func (c CategoryModel) Get(id int64) (*Category, error) {
-	return nil, nil
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	query := `SELECT id, title, description, photo_url
+			  FROM categories 
+			  WHERE id=$1`
+
+	var category Category
+	err := c.DB.QueryRow(query, id).Scan(
+		&category.ID,
+		&category.Title,
+		&category.Description,
+		&category.PhotoURL,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+
+	}
+
+	return &category, nil
 }
 
 func (c CategoryModel) Update(category *Category) error {
