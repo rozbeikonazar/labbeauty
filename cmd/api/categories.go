@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,11 +90,17 @@ func (app *application) showCategoryHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	category := data.Category{
-		ID:          id,
-		Title:       "Title",
-		Description: "Desc",
-		PhotoURL:    "Photo",
+	category, err := app.models.Categories.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+
 	}
 
 	err = app.writeJSON(w, http.StatusOK, category, nil)
