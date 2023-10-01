@@ -66,7 +66,20 @@ func (c CategoryModel) Get(id int64) (*Category, error) {
 }
 
 func (c CategoryModel) Update(category *Category) error {
-	return nil
+	query := `
+	UPDATE categories
+	SET title=$1, description=$2, photo_url=$3
+	WHERE id=$4
+	`
+	args := []any{
+		category.Title,
+		category.Description,
+		category.PhotoURL,
+		category.ID,
+	}
+	_, err := c.DB.Exec(query, args...)
+
+	return err
 
 }
 
