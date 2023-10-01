@@ -15,6 +15,7 @@ func (app *application) routes() http.Handler {
 	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
 	router.HandlerFunc(http.MethodPost, "/categories", app.createCategoryHandler)
 	router.HandlerFunc(http.MethodGet, "/categories/:id", app.showCategoryHandler)
+	router.HandlerFunc(http.MethodPut, "/categories/:id", app.updateCategoryHandler)
 	router.HandlerFunc(http.MethodGet, "/healthcheck", app.healthcheckHandler)
 	return app.recoverPanic(app.secureHeaders(router))
 }
