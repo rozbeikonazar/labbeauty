@@ -108,3 +108,52 @@ func (app *application) showCategoryHandler(w http.ResponseWriter, r *http.Reque
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	category, err := app.models.Categories.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	var input struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		PhotoURL    string `json:"photo_url"`
+	}
+
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	category.Title = input.Title
+	category.Description = input.Description
+	category.PhotoURL = input.PhotoURL
+	v := validator.New()
+	if data.ValidateCategory(category, v); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Categories.Update(category)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, category, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
