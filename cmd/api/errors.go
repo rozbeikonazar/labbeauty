@@ -55,11 +55,6 @@ func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.
 	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
 }
 
-func (app *application) fileAlreadyExistResponse(w http.ResponseWriter, r *http.Request, filename string) {
-	message := fmt.Sprintf("file %s already exist", filename)
-	app.errorResponse(w, r, http.StatusConflict, message)
-}
-
 func (app *application) dbErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 	// if error contains UNIQUE violations then serve an error response
 	// with first value that caused it
