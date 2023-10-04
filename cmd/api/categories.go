@@ -3,9 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 
 	"cosmetcab.dp.ua/internal/data"
 	"cosmetcab.dp.ua/internal/validator"
@@ -26,34 +24,20 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	defer file.Close()
-
-	// check if file with that name already exists
-	_, err = os.ReadFile(ImagesDir + header.Filename)
-	// if file does not exist then we are creating new file in specified dir
-	if err == nil {
-		app.fileAlreadyExistResponse(w, r, header.Filename)
-		return
-
-	}
-	// Create new file with the same name as the uploaded file
-	dst, err := os.Create(ImagesDir + header.Filename)
+	//before uploading check if file with that name already does not exist
+	//to avoid overwriting
+	fileName := generateUniqueFileName(header.Filename)
+	err = app.azureBlobStorage.UploadBlob(fileName, &file)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.errorResponse(w, r, http.StatusBadRequest, err)
 		return
 	}
-	defer dst.Close()
-	// Copy the contents of the uploaded file into the new file
-	if _, err := io.Copy(dst, file); err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
 	var input struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		PhotoURL    string `json:"photo_url"`
 	}
-	input.PhotoURL = ImagesDir + header.Filename
+	input.PhotoURL = blobURL + containerName + fileName
 	input.Title = r.FormValue("title")
 	input.Description = r.FormValue("description")
 
@@ -70,8 +54,12 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 
 	err = app.models.Categories.Insert(category)
 	if err != nil {
-		// delete image that have been saved to static
-		os.Remove(ImagesDir + header.Filename)
+		// if err occured while saving to DB, perform rollback
+		// delete image that have been saved to blob storage
+		delErr := app.azureBlobStorage.DeleteBlob(fileName)
+		if delErr != nil {
+			err = fmt.Errorf("%w; additionally, an error occured while deleting blob: %v", err, delErr)
+		}
 		app.dbErrorResponse(w, r, err)
 		return
 	}
@@ -79,8 +67,10 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	headers.Set("Location", fmt.Sprintf("/categories/%d", category.ID))
 
 	err = app.writeJSON(w, http.StatusCreated, category, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 
-	fmt.Fprintf(w, "%+v\n", input)
 }
 
 func (app *application) showCategoryHandler(w http.ResponseWriter, r *http.Request) {
