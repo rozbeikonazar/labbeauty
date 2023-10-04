@@ -11,10 +11,15 @@ import (
 	"time"
 
 	"cosmetcab.dp.ua/internal/data"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
-const ImagesDir = "./ui/static/img/"
+var (
+	blobURL       = goDotEnvVariable("BLOB_URL")
+	containerName = goDotEnvVariable("CONTAINER_NAME")
+)
 
 type config struct {
 	port int
@@ -28,24 +33,42 @@ type config struct {
 }
 
 type application struct {
-	config config
-	logger *slog.Logger
-	models data.Models
+	config           config
+	logger           *slog.Logger
+	models           data.Models
+	azureBlobStorage *AzureBlobStorage
+}
+
+func goDotEnvVariable(key string) string {
+	_ = godotenv.Load(".env")
+
+	return os.Getenv(key)
 }
 
 func main() {
 	var cfg config
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
-	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("LABBEAUTY_DB_DSN"), "PostgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", goDotEnvVariable("LABBEAUTY_DB_DSN"), "PostgreSQL DSN")
 
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connectiond")
 	flag.DurationVar(&cfg.db.maxIdleTime, "db-max-idle-time", 15*time.Minute, "PostgreSQL max connection idle time")
-
 	flag.Parse()
-
+	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	credential, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	azureBlobStorage, err := NewAzureBlobStorage(blobURL, credential, ctx)
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
 
 	db, err := openDB(cfg)
 	if err != nil {
@@ -58,9 +81,10 @@ func main() {
 	logger.Info("DB connection pool established")
 
 	app := &application{
-		config: cfg,
-		logger: logger,
-		models: data.NewModels(db),
+		config:           cfg,
+		logger:           logger,
+		models:           data.NewModels(db),
+		azureBlobStorage: azureBlobStorage,
 	}
 
 	srv := &http.Server{
