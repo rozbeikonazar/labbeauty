@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"cosmetcab.dp.ua/internal/data"
 	"cosmetcab.dp.ua/internal/validator"
@@ -16,16 +17,15 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	// Retrieve the file from the form data. The 'photo' key corresponds to the 'name' attribute
-	// of the file input field in the form.
+	// Retrieve the file from the form data.
+	// The 'photo' key corresponds to the 'name' attribute
+	// of the file input field in the form
 	file, header, err := r.FormFile("photo")
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 	defer file.Close()
-	//before uploading check if file with that name already does not exist
-	//to avoid overwriting
 	fileName := generateUniqueFileName(header.Filename)
 	err = app.azureBlobStorage.UploadBlob(fileName, &file)
 	if err != nil {
@@ -58,6 +58,8 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		// delete image that have been saved to blob storage
 		delErr := app.azureBlobStorage.DeleteBlob(fileName)
 		if delErr != nil {
+			// TODO mark this blob for deletion later
+
 			err = fmt.Errorf("%w; additionally, an error occured while deleting blob: %v", err, delErr)
 		}
 		app.dbErrorResponse(w, r, err)
@@ -66,7 +68,7 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	headers := make(http.Header)
 	headers.Set("Location", fmt.Sprintf("/categories/%d", category.ID))
 
-	err = app.writeJSON(w, http.StatusCreated, category, headers)
+	err = app.writeJSON(w, http.StatusCreated, envelope{"category": category}, headers)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
@@ -93,7 +95,7 @@ func (app *application) showCategoryHandler(w http.ResponseWriter, r *http.Reque
 
 	}
 
-	err = app.writeJSON(w, http.StatusOK, category, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"category": category}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
@@ -141,9 +143,39 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusOK, category, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"category": category}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
 
+}
+
+func (app *application) deleteCategoryHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	photoURL, err := app.models.Categories.Delete(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+
+		}
+		return
+	}
+	blobName := strings.Split(photoURL, containerName)
+	err = app.azureBlobStorage.DeleteBlob(blobName[1])
+	if err != nil {
+		// TODO mark this blob for deletion later
+		app.logError(r, err)
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "category successfully deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
