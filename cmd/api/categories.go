@@ -48,6 +48,10 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	}
 	v := validator.New()
 	if data.ValidateCategory(category, v); !v.Valid() {
+		err := app.azureBlobStorage.DeleteBlob(fileName)
+		if err != nil {
+			// TODO mark this blob for deletion later
+		}
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
@@ -117,20 +121,48 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		}
 		return
 	}
-	var input struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		PhotoURL    string `json:"photo_url"`
-	}
-
-	err = app.readJSON(w, r, &input)
+	err = r.ParseMultipartForm(10 << 20) // max size 10MB
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	category.Title = input.Title
-	category.Description = input.Description
-	category.PhotoURL = input.PhotoURL
+
+	// Retrieve the file from the form data.
+	// The 'photo' key corresponds to the 'name' attribute
+	// of the file input field in the form
+	file, header, err := r.FormFile("photo")
+	if err == nil {
+		// this means user specified the file and therefore
+		// we need to upload it to the blob
+		// but before doing this we need to delete previous image from the blob storage
+		photoURL := category.PhotoURL
+		// split photoURL to get blobName
+		blobName := strings.Split(photoURL, containerName)
+		err = app.azureBlobStorage.DeleteBlob(blobName[1])
+		if err != nil {
+			// TODO mark this blob for deletion later
+			app.logError(r, err)
+		}
+		fileName := generateUniqueFileName(header.Filename)
+		err = app.azureBlobStorage.UploadBlob(fileName, &file)
+		if err != nil {
+			app.errorResponse(w, r, http.StatusBadRequest, err)
+			return
+		}
+		category.PhotoURL = blobURL + containerName + fileName
+		defer file.Close()
+	}
+
+	title := r.FormValue("title")
+	if title != "" {
+		category.Title = title
+	}
+
+	description := r.FormValue("description")
+	if description != "" {
+		category.Description = description
+	}
+
 	v := validator.New()
 	if data.ValidateCategory(category, v); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
@@ -147,7 +179,6 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
-
 }
 
 func (app *application) deleteCategoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +199,7 @@ func (app *application) deleteCategoryHandler(w http.ResponseWriter, r *http.Req
 		}
 		return
 	}
+	// split photoURL by containerName to get blobName
 	blobName := strings.Split(photoURL, containerName)
 	err = app.azureBlobStorage.DeleteBlob(blobName[1])
 	if err != nil {
