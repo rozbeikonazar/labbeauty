@@ -41,9 +41,10 @@ func (c CategoryModel) Get(id int64) (*Category, error) {
 	if id < 1 {
 		return nil, ErrRecordNotFound
 	}
-	query := `SELECT id, title, description, photo_url
-			  FROM categories 
-			  WHERE id=$1`
+	query := `
+			SELECT id, title, description, photo_url
+			FROM categories 
+			WHERE id=$1`
 
 	var category Category
 	err := c.DB.QueryRow(query, id).Scan(
@@ -67,10 +68,9 @@ func (c CategoryModel) Get(id int64) (*Category, error) {
 
 func (c CategoryModel) Update(category *Category) error {
 	query := `
-	UPDATE categories
-	SET title=$1, description=$2, photo_url=$3
-	WHERE id=$4
-	`
+		UPDATE categories
+		SET title=$1, description=$2, photo_url=$3
+		WHERE id=$4`
 	args := []any{
 		category.Title,
 		category.Description,
@@ -83,6 +83,25 @@ func (c CategoryModel) Update(category *Category) error {
 
 }
 
-func (c CategoryModel) Delete(id int64) error {
-	return nil
+func (c CategoryModel) Delete(id int64) (string, error) {
+	if id < 1 {
+		return "", ErrRecordNotFound
+	}
+	query := `
+		DELETE FROM categories
+		WHERE id=$1
+		RETURNING photo_url` // this line
+	//result, err := c.DB.Exec(query, id) // query row here
+	var category Category
+	err := c.DB.QueryRow(query, id).Scan(&category.PhotoURL)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return "", ErrRecordNotFound
+		default:
+			return "", err
+		}
+	}
+	return category.PhotoURL, nil
+
 }
