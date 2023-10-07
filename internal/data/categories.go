@@ -1,8 +1,10 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"cosmetcab.dp.ua/internal/validator"
 )
@@ -33,8 +35,9 @@ func (c CategoryModel) Insert(category *Category) error {
 	RETURNING id`
 
 	args := []any{category.Title, category.Description, category.PhotoURL}
-
-	return c.DB.QueryRow(query, args...).Scan(&category.ID)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	return c.DB.QueryRowContext(ctx, query, args...).Scan(&category.ID)
 }
 
 func (c CategoryModel) Get(id int64) (*Category, error) {
@@ -47,7 +50,9 @@ func (c CategoryModel) Get(id int64) (*Category, error) {
 			WHERE id=$1`
 
 	var category Category
-	err := c.DB.QueryRow(query, id).Scan(
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := c.DB.QueryRowContext(ctx, query, id).Scan(
 		&category.ID,
 		&category.Title,
 		&category.Description,
@@ -77,7 +82,9 @@ func (c CategoryModel) Update(category *Category) error {
 		category.PhotoURL,
 		category.ID,
 	}
-	_, err := c.DB.Exec(query, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err := c.DB.ExecContext(ctx, query, args...)
 
 	return err
 
@@ -90,10 +97,11 @@ func (c CategoryModel) Delete(id int64) (string, error) {
 	query := `
 		DELETE FROM categories
 		WHERE id=$1
-		RETURNING photo_url` // this line
-	//result, err := c.DB.Exec(query, id) // query row here
+		RETURNING photo_url`
 	var category Category
-	err := c.DB.QueryRow(query, id).Scan(&category.PhotoURL)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := c.DB.QueryRowContext(ctx, query, id).Scan(&category.PhotoURL)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
