@@ -13,6 +13,7 @@ func (app *application) routes() http.Handler {
 
 	fileServer := http.FileServer(http.Dir("./ui/static"))
 	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
+	router.HandlerFunc(http.MethodGet, "/categories", app.listCategoriesHanlder)
 	router.HandlerFunc(http.MethodPost, "/categories", app.createCategoryHandler)
 	router.HandlerFunc(http.MethodGet, "/categories/:id", app.showCategoryHandler)
 	router.HandlerFunc(http.MethodPatch, "/categories/:id", app.updateCategoryHandler)
