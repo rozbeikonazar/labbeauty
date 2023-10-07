@@ -105,6 +105,19 @@ func (app *application) showCategoryHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+func (app *application) listCategoriesHanlder(w http.ResponseWriter, r *http.Request) {
+	categories, err := app.models.Categories.GetAll()
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"categories": categories}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
+
 func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
