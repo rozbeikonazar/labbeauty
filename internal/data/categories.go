@@ -70,6 +70,41 @@ func (c CategoryModel) Get(id int64) (*Category, error) {
 
 	return &category, nil
 }
+func (c CategoryModel) GetAll() ([]*Category, error) {
+	query := `
+	SELECT id, title, description, photo_url 
+	FROM categories
+	ORDER BY id`
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := c.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	categories := []*Category{}
+	for rows.Next() {
+		var category Category
+		err := rows.Scan(
+			&category.ID,
+			&category.Title,
+			&category.Description,
+			&category.PhotoURL,
+		)
+		if err != nil {
+			return nil, err
+		}
+		categories = append(categories, &category)
+
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return categories, nil
+
+}
 
 func (c CategoryModel) Update(category *Category) error {
 	query := `
