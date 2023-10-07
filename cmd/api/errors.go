@@ -66,3 +66,8 @@ func (app *application) dbErrorResponse(w http.ResponseWriter, r *http.Request, 
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request) {
+	message := "rate limit exceeded"
+	app.errorResponse(w, r, http.StatusTooManyRequests, message)
+}
