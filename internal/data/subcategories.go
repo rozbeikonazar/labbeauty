@@ -58,6 +58,37 @@ func (m SubCategoryModel) Get(id int64) (*SubCategory, error) {
 	return &subCategory, nil
 }
 
+func (m SubCategoryModel) GetAll() ([]*SubCategory, error) {
+	query := `
+	SELECT id, name
+	FROM subcategories`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	subCategories := []*SubCategory{}
+	for rows.Next() {
+		var subCategory SubCategory
+		err := rows.Scan(
+			&subCategory.ID,
+			&subCategory.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		subCategories = append(subCategories, &subCategory)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return subCategories, nil
+
+}
+
 func (m SubCategoryModel) Update(subCategory *SubCategory) error {
 	query := `
 	UPDATE subcategories
