@@ -40,6 +40,11 @@ func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request)
 	app.errorResponse(w, r, http.StatusNotFound, message)
 }
 
+func (app *application) notFoundWithIDResponse(w http.ResponseWriter, r *http.Request, id int64) {
+	message := fmt.Sprintf("the requested resource with id %d could", id)
+	app.errorResponse(w, r, http.StatusNotFound, message)
+}
+
 func (app *application) notAllowedResponse(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf("Method %s is not allowed for this resource", r.Method)
 	app.errorResponse(w, r, http.StatusMethodNotAllowed, message)
