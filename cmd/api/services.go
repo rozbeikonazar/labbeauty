@@ -85,3 +85,74 @@ func (app *application) showServiceHandler(w http.ResponseWriter, r *http.Reques
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) updateServiceHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	service, err := app.models.Services.Get(id)
+	if err != nil {
+
+	}
+
+	var input struct {
+		Time          *sql.NullInt16 `json:"time"`
+		Description   *string        `json:"description"`
+		Price         *int           `json:"price"`
+		CategoryID    *int64         `json:"category_id"`
+		SubCategoryID *int64         `json:"subcategory_id"`
+	}
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	if input.Time != nil {
+		service.Time = *input.Time
+	}
+	if input.Description != nil {
+		service.Description = *input.Description
+	}
+	if input.Price != nil {
+		service.Price = *input.Price
+	}
+	if input.CategoryID != nil {
+		// check if category with new id exists
+		_, err := app.models.Categories.Get(*input.CategoryID)
+		if err != nil {
+			app.notFoundResponse(w, r)
+			return
+		}
+		// if category exists then assign it to service
+		service.CategoryID = *input.CategoryID
+
+	}
+	if input.SubCategoryID != nil {
+		_, err := app.models.SubCategories.Get(*input.SubCategoryID)
+		if err != nil {
+			app.notFoundResponse(w, r)
+			return
+		}
+		service.SubCategoryID = *input.SubCategoryID
+	}
+
+	v := validator.New()
+	if data.ValidateService(service, v); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	err = app.models.Services.Update(service)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"service": service}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+
+}
