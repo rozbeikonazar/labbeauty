@@ -72,3 +72,22 @@ func (m ServiceModel) Get(id int64) (*Service, error) {
 	return &service, nil
 
 }
+
+func (m ServiceModel) Update(service *Service) error {
+	query := `
+	UPDATE services
+	SET time=$1, description=$2, price=$3, category_id=$4, subcategory_id=$5
+	WHERE id=$6`
+	args := []any{
+		service.Time,
+		service.Description,
+		service.Price,
+		service.CategoryID,
+		service.SubCategoryID,
+		service.ID,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err := m.DB.ExecContext(ctx, query, args...)
+	return err
+}
