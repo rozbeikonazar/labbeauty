@@ -22,12 +22,12 @@ func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 	}
-	category, err := app.models.Categories.Get(input.CategoryID)
+	_, err = app.models.Categories.Get(input.CategoryID)
 	if err != nil {
 		app.notFoundResponse(w, r)
 		return
 	}
-	subcategory, err := app.models.SubCategories.Get(input.SubCategoryID)
+	_, err = app.models.SubCategories.Get(input.SubCategoryID)
 	if err != nil {
 		app.notFoundResponse(w, r)
 		return
@@ -54,11 +54,7 @@ func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Requ
 	headers := make(http.Header)
 	headers.Set("Location", fmt.Sprintf("/services/%d", service.ID))
 
-	err = app.writeJSON(w, http.StatusCreated, envelope{
-		"service":     service,
-		"category":    category,
-		"subcategory": subcategory,
-	}, headers)
+	err = app.writeJSON(w, http.StatusCreated, envelope{"service": service}, headers)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
