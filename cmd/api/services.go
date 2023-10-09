@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -56,6 +57,30 @@ func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Requ
 
 	err = app.writeJSON(w, http.StatusCreated, envelope{"service": service}, headers)
 
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) showServiceHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	service, err := app.models.Services.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+
+		}
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"service": service}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
