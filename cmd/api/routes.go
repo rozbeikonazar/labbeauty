@@ -25,6 +25,8 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/subcategories/:id", app.showSubCategoryHandler)
 	router.HandlerFunc(http.MethodPut, "/subcategories/:id", app.updateSubCategoryHandler)
 	router.HandlerFunc(http.MethodDelete, "/subcategories/:id", app.deleteSubCategoryHandler)
+	// services routes
+	router.HandlerFunc(http.MethodPost, "/services", app.createServiceHandler)
 
 	router.HandlerFunc(http.MethodGet, "/healthcheck", app.healthcheckHandler)
 	return app.recoverPanic(app.rateLimit(app.secureHeaders(router)))
