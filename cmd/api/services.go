@@ -25,12 +25,12 @@ func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Requ
 	}
 	_, err = app.models.Categories.Get(input.CategoryID)
 	if err != nil {
-		app.notFoundResponse(w, r)
+		app.notFoundWithIDResponse(w, r, input.CategoryID)
 		return
 	}
 	_, err = app.models.SubCategories.Get(input.SubCategoryID)
 	if err != nil {
-		app.notFoundResponse(w, r)
+		app.notFoundWithIDResponse(w, r, input.SubCategoryID)
 		return
 	}
 	service := &data.Service{
@@ -155,4 +155,25 @@ func (app *application) updateServiceHandler(w http.ResponseWriter, r *http.Requ
 		app.serverErrorResponse(w, r, err)
 	}
 
+}
+
+func (app *application) deleteServiceHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+	}
+	err = app.models.Services.Delete(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "service succesfully deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
