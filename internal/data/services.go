@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"cosmetcab.dp.ua/internal/validator"
@@ -38,4 +39,36 @@ func (m ServiceModel) Insert(service *Service) error {
 	defer cancel()
 
 	return m.DB.QueryRowContext(ctx, query, args...).Scan(&service.ID)
+}
+
+func (m ServiceModel) Get(id int64) (*Service, error) {
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	query := `
+	SELECT id, time, description, price, category_id, subcategory_id
+	FROM services
+	WHERE id=$1;
+	`
+	var service Service
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
+		&service.ID,
+		&service.Time,
+		&service.Description,
+		&service.Price,
+		&service.CategoryID,
+		&service.SubCategoryID,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &service, nil
+
 }
