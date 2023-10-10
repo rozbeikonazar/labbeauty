@@ -20,7 +20,7 @@ type SubCategoryModel struct {
 
 func ValidateSubCategory(subCategory *SubCategory, v *validator.Validator) {
 	v.Check(subCategory.Name != "", "name", "must be provided")
-	v.Check(len([]rune(subCategory.Name)) >= 8, "name", "name must have more than 8 chars")
+	v.Check(len([]rune(subCategory.Name)) >= 3, "name", "must have more than 3 chars")
 }
 
 func (m SubCategoryModel) Insert(subCategory *SubCategory) error {
