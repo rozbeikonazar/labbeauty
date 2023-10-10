@@ -99,6 +99,35 @@ func (app *application) listServicesHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+func (app *application) listServicesWithSubcategoriesByCategory(w http.ResponseWriter, r *http.Request) {
+	category_id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	_, err = app.models.Categories.Get(category_id)
+	if err != nil {
+		app.notFoundWithIDResponse(w, r, category_id)
+		return
+	}
+	servicesWithSubcategories, err := app.models.Services.GetAllServicesWithSubcategoriesByID(category_id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+
+		default:
+			app.serverErrorResponse(w, r, err)
+
+		}
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"services_with_subcategories": servicesWithSubcategories}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
 func (app *application) updateServiceHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
