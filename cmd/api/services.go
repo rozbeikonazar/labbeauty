@@ -22,6 +22,7 @@ func (app *application) createServiceHandler(w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
 	}
 	_, err = app.models.Categories.Get(input.CategoryID)
 	if err != nil {
@@ -81,6 +82,18 @@ func (app *application) showServiceHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	err = app.writeJSON(w, http.StatusOK, envelope{"service": service}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) listServicesHandler(w http.ResponseWriter, r *http.Request) {
+	services, err := app.models.Services.GetAll()
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"services": services}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
