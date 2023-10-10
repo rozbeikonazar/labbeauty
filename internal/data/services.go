@@ -18,6 +18,14 @@ type Service struct {
 	SubCategoryID int64         `json:"subcategory_id"`
 }
 
+type ServiceWithSubcategory struct {
+	ID          int64         `json:"id"`
+	Time        sql.NullInt16 `json:"time"`
+	Description string        `json:"description"`
+	Price       int           `json:"price"`
+	Subcategory SubCategory   `json:"subcategory"`
+}
+
 type ServiceModel struct {
 	DB *sql.DB
 }
@@ -105,6 +113,54 @@ func (m ServiceModel) GetAll() ([]*Service, error) {
 		return nil, err
 	}
 	return services, nil
+}
+
+func (m ServiceModel) GetAllServicesWithSubcategoriesByID(category_id int64) ([]*ServiceWithSubcategory, error) {
+	if category_id < 1 {
+		return nil, ErrRecordNotFound
+	}
+
+	query := `
+	SELECT
+		s.id AS service_id,
+		s.time,
+		s.description,
+		s.price,
+		sc.id AS subcategory_id,
+		sc.name
+	FROM 
+		services s
+	LEFT JOIN
+		subcategories sc ON s.subcategory_id = sc.id
+	WHERE s.category_id = $1;
+	`
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	rows, err := m.DB.QueryContext(ctx, query, category_id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	servicesWithSubcategories := []*ServiceWithSubcategory{}
+	for rows.Next() {
+		var serviceWithSubcategory ServiceWithSubcategory
+		err = rows.Scan(
+			&serviceWithSubcategory.ID,
+			&serviceWithSubcategory.Time,
+			&serviceWithSubcategory.Description,
+			&serviceWithSubcategory.Price,
+			&serviceWithSubcategory.Subcategory.ID,
+			&serviceWithSubcategory.Subcategory.Name,
+		)
+		if err != nil {
+			return nil, err
+		}
+		servicesWithSubcategories = append(servicesWithSubcategories, &serviceWithSubcategory)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return servicesWithSubcategories, nil
 }
 
 func (m ServiceModel) Update(service *Service) error {
