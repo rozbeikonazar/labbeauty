@@ -26,6 +26,7 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodPut, "/subcategories/:id", app.updateSubCategoryHandler)
 	router.HandlerFunc(http.MethodDelete, "/subcategories/:id", app.deleteSubCategoryHandler)
 	// services routes
+	router.HandlerFunc(http.MethodGet, "/services", app.listServicesHandler)
 	router.HandlerFunc(http.MethodPost, "/services", app.createServiceHandler)
 	router.HandlerFunc(http.MethodGet, "/services/:id", app.showServiceHandler)
 	router.HandlerFunc(http.MethodPatch, "/services/:id", app.updateServiceHandler)
