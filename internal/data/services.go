@@ -73,6 +73,40 @@ func (m ServiceModel) Get(id int64) (*Service, error) {
 
 }
 
+func (m ServiceModel) GetAll() ([]*Service, error) {
+	query := `
+	SELECT id, time, description, price, category_id, subcategory_id
+	FROM services
+	ORDER BY id`
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	services := []*Service{}
+	for rows.Next() {
+		var service Service
+		err = rows.Scan(
+			&service.ID,
+			&service.Time,
+			&service.Description,
+			&service.Price,
+			&service.CategoryID,
+			&service.SubCategoryID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, &service)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return services, nil
+}
+
 func (m ServiceModel) Update(service *Service) error {
 	query := `
 	UPDATE services
