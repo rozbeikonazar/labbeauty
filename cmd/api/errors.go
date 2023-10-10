@@ -41,7 +41,7 @@ func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request)
 }
 
 func (app *application) notFoundWithIDResponse(w http.ResponseWriter, r *http.Request, id int64) {
-	message := fmt.Sprintf("the requested resource with id %d could", id)
+	message := fmt.Sprintf("the requested resource with id %d could not be found", id)
 	app.errorResponse(w, r, http.StatusNotFound, message)
 }
 
