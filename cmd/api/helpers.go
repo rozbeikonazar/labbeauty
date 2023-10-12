@@ -98,8 +98,10 @@ func generateUniqueImageName(fileName string) (string, error) {
 }
 
 func (app *application) background(fn func()) {
+	app.wg.Add(1)
 	go func() {
 		// recover any panic
+		defer app.wg.Done()
 		defer func() {
 			if err := recover(); err != nil {
 				app.logger.Error(fmt.Sprintf("%v", err))
