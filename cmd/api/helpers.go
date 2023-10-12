@@ -87,11 +87,14 @@ func isImageExtension(extension string) bool {
 	return false
 }
 
-func generateUniqueImageName(fileName string) string {
+func generateUniqueImageName(fileName string) (string, error) {
 	uniqueID := uuid.New()
 	fileExtension := filepath.Ext(fileName)
+	if !isImageExtension(fileExtension) {
+		return "", fmt.Errorf("File has an unsupported extension: %s", fileExtension)
+	}
 	uniqueFileName := uniqueID.String() + fileExtension
-	return uniqueFileName
+	return uniqueFileName, nil
 }
 
 func (app *application) background(fn func()) {
