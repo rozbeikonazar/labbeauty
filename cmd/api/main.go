@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"cosmetcab.dp.ua/internal/data"
@@ -40,6 +41,7 @@ type application struct {
 	logger           *slog.Logger
 	models           data.Models
 	azureBlobStorage *AzureBlobStorage
+	wg               sync.WaitGroup
 }
 
 func goDotEnvVariable(key string) string {
