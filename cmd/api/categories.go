@@ -26,7 +26,11 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	defer file.Close()
-	fileName := generateUniqueFileName(header.Filename)
+	fileName, err := generateUniqueImageName(header.Filename)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
 	// upload image in a background goroutine
 	app.background(func() {
 		err = app.azureBlobStorage.UploadBlob(fileName, &file)
@@ -159,7 +163,13 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 	if err == nil {
 		// this means user specified the file and therefore
 		// we need to upload it to the blob
-		// but before doing this we need to delete previous image from the blob storage
+		fileName, err := generateUniqueImageName(header.Filename)
+		if err != nil {
+			app.badRequestResponse(w, r, err)
+			return
+		}
+		// if file provided has supported extension, we have to delete previous blob
+		// before uploading a new one
 		photoURL := category.PhotoURL
 		// split photoURL to get blobName
 		blobName := strings.Split(photoURL, containerName)
@@ -168,7 +178,6 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 			// TODO mark this blob for deletion later
 			app.logError(r, err)
 		}
-		fileName := generateUniqueFileName(header.Filename)
 		err = app.azureBlobStorage.UploadBlob(fileName, &file)
 		if err != nil {
 			app.errorResponse(w, r, http.StatusBadRequest, err)
