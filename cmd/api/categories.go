@@ -58,6 +58,8 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	}
 	v := validator.New()
 	if data.ValidateCategory(category, v); !v.Valid() {
+		// delete image in a background goroutine
+
 		app.background(func() {
 			err = app.azureBlobStorage.DeleteBlob(fileName)
 			if err != nil {
@@ -173,16 +175,24 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		photoURL := category.PhotoURL
 		// split photoURL to get blobName
 		blobName := strings.Split(photoURL, containerName)
-		err = app.azureBlobStorage.DeleteBlob(blobName[1])
-		if err != nil {
-			// TODO mark this blob for deletion later
-			app.logError(r, err)
-		}
-		err = app.azureBlobStorage.UploadBlob(fileName, &file)
-		if err != nil {
-			app.errorResponse(w, r, http.StatusBadRequest, err)
-			return
-		}
+		// delete old image in a background goroutine
+		app.background(func() {
+			err = app.azureBlobStorage.DeleteBlob(blobName[1])
+			if err != nil {
+				app.logger.Error(err.Error())
+				// TODO mark this blob for deletion later
+
+			}
+		})
+		// upload new image in a background goroutine
+
+		app.background(func() {
+			err = app.azureBlobStorage.UploadBlob(fileName, &file)
+			if err != nil {
+				app.logger.Error(err.Error())
+				// TODO also send error message to telegram
+			}
+		})
 		category.PhotoURL = blobURL + containerName + fileName
 		defer file.Close()
 	}
@@ -209,7 +219,7 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusOK, envelope{"category": category}, nil)
+	err = app.writeJSON(w, http.StatusAccepted, envelope{"category": category}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
@@ -235,12 +245,15 @@ func (app *application) deleteCategoryHandler(w http.ResponseWriter, r *http.Req
 	}
 	// split photoURL by containerName to get blobName
 	blobName := strings.Split(photoURL, containerName)
-	err = app.azureBlobStorage.DeleteBlob(blobName[1])
-	if err != nil {
-		// TODO mark this blob for deletion later
-		app.logError(r, err)
-	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"message": "category successfully deleted"}, nil)
+
+	app.background(func() {
+		err = app.azureBlobStorage.DeleteBlob(blobName[1])
+		if err != nil {
+			app.logger.Error(err.Error())
+			// TODO mark this blob for deletion later
+		}
+	})
+	err = app.writeJSON(w, http.StatusAccepted, envelope{"message": "category successfully deleted"}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
