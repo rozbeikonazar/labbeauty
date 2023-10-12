@@ -75,7 +75,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 	return nil
 }
 
-func generateUniqueFileName(fileName string) string {
+func generateUniqueImageName(fileName string) string {
 	uniqueID := uuid.New()
 	fileExtension := filepath.Ext(fileName)
 	uniqueFileName := uniqueID.String() + fileExtension
