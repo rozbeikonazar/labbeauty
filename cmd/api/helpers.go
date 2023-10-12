@@ -81,3 +81,16 @@ func generateUniqueFileName(fileName string) string {
 	uniqueFileName := uniqueID.String() + fileExtension
 	return uniqueFileName
 }
+
+func (app *application) background(fn func()) {
+	go func() {
+		// recover any panic
+		defer func() {
+			if err := recover(); err != nil {
+				app.logger.Error(fmt.Sprintf("%v", err))
+			}
+		}()
+		// executed passed func in the background
+		fn()
+	}()
+}
