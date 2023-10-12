@@ -27,11 +27,17 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	}
 	defer file.Close()
 	fileName := generateUniqueFileName(header.Filename)
-	err = app.azureBlobStorage.UploadBlob(fileName, &file)
-	if err != nil {
-		app.errorResponse(w, r, http.StatusBadRequest, err)
-		return
-	}
+	// upload image in a background goroutine
+	app.background(func() {
+		err = app.azureBlobStorage.UploadBlob(fileName, &file)
+		if err != nil {
+			// if image could not be uploaded, log error
+			app.logger.Error(err.Error())
+			// TODO also send error message to telegram
+
+		}
+	})
+
 	var input struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
@@ -48,31 +54,37 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	}
 	v := validator.New()
 	if data.ValidateCategory(category, v); !v.Valid() {
-		err := app.azureBlobStorage.DeleteBlob(fileName)
-		if err != nil {
-			// TODO mark this blob for deletion later
-		}
+		app.background(func() {
+			err = app.azureBlobStorage.DeleteBlob(fileName)
+			if err != nil {
+				app.logger.Error(err.Error())
+				// TODO mark this blob for deletion later
+
+			}
+		})
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
 	err = app.models.Categories.Insert(category)
 	if err != nil {
-		// if err occured while saving to DB, perform rollback
-		// delete image that have been saved to blob storage
-		delErr := app.azureBlobStorage.DeleteBlob(fileName)
-		if delErr != nil {
-			// TODO mark this blob for deletion later
+		// if err occured while saving to DB, perform deletion in a background goroutine
+		// of image that have been saved to blob storage
+		app.background(func() {
+			delErr := app.azureBlobStorage.DeleteBlob(fileName)
+			if delErr != nil {
+				app.logger.Error(err.Error())
+				// TODO mark this blob for deletion later
 
-			err = fmt.Errorf("%w; additionally, an error occured while deleting blob: %v", err, delErr)
-		}
+			}
+		})
 		app.dbErrorResponse(w, r, err)
 		return
 	}
 	headers := make(http.Header)
 	headers.Set("Location", fmt.Sprintf("/categories/%d", category.ID))
 
-	err = app.writeJSON(w, http.StatusCreated, envelope{"category": category}, headers)
+	err = app.writeJSON(w, http.StatusAccepted, envelope{"category": category}, headers)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
