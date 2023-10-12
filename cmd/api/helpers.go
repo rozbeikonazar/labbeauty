@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
@@ -73,6 +74,17 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any
 
 	}
 	return nil
+}
+func isImageExtension(extension string) bool {
+	extension = strings.ToLower(extension)
+	imageExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+	for _, imgExt := range imageExtensions {
+		if extension == imgExt {
+			return true
+		}
+	}
+
+	return false
 }
 
 func generateUniqueImageName(fileName string) string {
