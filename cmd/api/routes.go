@@ -10,7 +10,6 @@ func (app *application) routes() http.Handler {
 	router := httprouter.New()
 	router.NotFound = http.HandlerFunc(app.notFoundResponse)
 	router.MethodNotAllowed = http.HandlerFunc(app.notAllowedResponse)
-
 	fileServer := http.FileServer(http.Dir("./ui/static"))
 	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
 	// categories routes
@@ -33,7 +32,11 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodDelete, "/services/:id", app.deleteServiceHandler)
 
 	router.HandlerFunc(http.MethodGet, "/services_with_subcategories/:id", app.listServicesWithSubcategoriesByCategory)
-
+	// users routes
+	router.HandlerFunc(http.MethodPost, "/user/register", app.registerUserHandler)
+	router.HandlerFunc(http.MethodGet, "/user/login", app.loginHandler)
+	router.HandlerFunc(http.MethodGet, "/user/logout", app.logoutHandler)
 	router.HandlerFunc(http.MethodGet, "/healthcheck", app.healthcheckHandler)
+
 	return app.recoverPanic(app.rateLimit(app.secureHeaders(router)))
 }
