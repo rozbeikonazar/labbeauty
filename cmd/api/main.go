@@ -11,6 +11,7 @@ import (
 
 	"cosmetcab.dp.ua/internal/data"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -42,6 +43,7 @@ type application struct {
 	models           data.Models
 	azureBlobStorage *AzureBlobStorage
 	wg               sync.WaitGroup
+	sessionManager   *sessions.CookieStore
 }
 
 func goDotEnvVariable(key string) string {
@@ -89,11 +91,19 @@ func main() {
 
 	logger.Info("DB connection pool established")
 
+	var store = sessions.NewCookieStore([]byte(goDotEnvVariable("TOKEN")))
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   60 * 60,
+		HttpOnly: true,
+	}
+
 	app := &application{
 		config:           cfg,
 		logger:           logger,
 		models:           data.NewModels(db),
 		azureBlobStorage: azureBlobStorage,
+		sessionManager:   store,
 	}
 	err = app.serve()
 	if err != nil {

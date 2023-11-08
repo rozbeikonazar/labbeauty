@@ -9,6 +9,12 @@ require github.com/lib/pq v1.10.9
 require golang.org/x/time v0.3.0
 
 require (
+	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/gorilla/sessions v1.2.2 // indirect
+	github.com/justinas/alice v1.2.0 // indirect
+)
+
+require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.1
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.3.0 // indirect
