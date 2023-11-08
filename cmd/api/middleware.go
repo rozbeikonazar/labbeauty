@@ -82,3 +82,19 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 	})
 
 }
+
+func (app *application) checkAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, err := app.sessionManager.Get(r, "cookie-auth")
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+		if session.Values["authenticated"] == nil || session.Values["authenticated"] == false {
+			app.unauthorizedUserResponse(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+
+	})
+}
