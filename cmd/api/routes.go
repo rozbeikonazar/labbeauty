@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/justinas/alice"
 )
 
 func (app *application) routes() http.Handler {
@@ -11,32 +12,35 @@ func (app *application) routes() http.Handler {
 	router.NotFound = http.HandlerFunc(app.notFoundResponse)
 	router.MethodNotAllowed = http.HandlerFunc(app.notAllowedResponse)
 	fileServer := http.FileServer(http.Dir("./ui/static"))
-	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
-	// categories routes
-	router.HandlerFunc(http.MethodGet, "/categories", app.listCategoriesHanlder)
-	router.HandlerFunc(http.MethodPost, "/categories", app.createCategoryHandler)
-	router.HandlerFunc(http.MethodGet, "/categories/:id", app.showCategoryHandler)
-	router.HandlerFunc(http.MethodPatch, "/categories/:id", app.updateCategoryHandler)
-	router.HandlerFunc(http.MethodDelete, "/categories/:id", app.deleteCategoryHandler)
-	// subcategories routes
-	router.HandlerFunc(http.MethodGet, "/subcategories", app.listSubCategoriesHandler)
-	router.HandlerFunc(http.MethodPost, "/subcategories", app.createSubCategoryHandler)
-	router.HandlerFunc(http.MethodGet, "/subcategories/:id", app.showSubCategoryHandler)
-	router.HandlerFunc(http.MethodPut, "/subcategories/:id", app.updateSubCategoryHandler)
-	router.HandlerFunc(http.MethodDelete, "/subcategories/:id", app.deleteSubCategoryHandler)
-	// services routes
-	router.HandlerFunc(http.MethodGet, "/services", app.listServicesHandler)
-	router.HandlerFunc(http.MethodPost, "/services", app.createServiceHandler)
-	router.HandlerFunc(http.MethodGet, "/services/:id", app.showServiceHandler)
-	router.HandlerFunc(http.MethodPatch, "/services/:id", app.updateServiceHandler)
-	router.HandlerFunc(http.MethodDelete, "/services/:id", app.deleteServiceHandler)
+	authorizedChain := alice.New(app.recoverPanic, app.rateLimit, app.secureHeaders, app.checkAuth)
+	stdChain := alice.New(app.recoverPanic, app.rateLimit, app.secureHeaders)
 
-	router.HandlerFunc(http.MethodGet, "/services_with_subcategories/:id", app.listServicesWithSubcategoriesByCategory)
+	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
+	// categories routesstdChain(
+	router.Handler(http.MethodGet, "/categories", stdChain.ThenFunc(app.listCategoriesHanlder))
+	router.Handler(http.MethodPost, "/categories", authorizedChain.ThenFunc(app.createCategoryHandler))
+	router.Handler(http.MethodGet, "/categories/:id", stdChain.ThenFunc(app.showCategoryHandler))
+	router.Handler(http.MethodPatch, "/categories/:id", authorizedChain.ThenFunc(app.updateCategoryHandler))
+	router.Handler(http.MethodDelete, "/categories/:id", authorizedChain.ThenFunc(app.deleteCategoryHandler))
+	// subcategories routes
+	router.Handler(http.MethodGet, "/subcategories", stdChain.ThenFunc(app.listSubCategoriesHandler))
+	router.Handler(http.MethodPost, "/subcategories", authorizedChain.ThenFunc(app.createSubCategoryHandler))
+	router.Handler(http.MethodGet, "/subcategories/:id", stdChain.ThenFunc(app.showSubCategoryHandler))
+	router.Handler(http.MethodPut, "/subcategories/:id", authorizedChain.ThenFunc(app.updateSubCategoryHandler))
+	router.Handler(http.MethodDelete, "/subcategories/:id", authorizedChain.ThenFunc(app.deleteSubCategoryHandler))
+	// services routes
+	router.Handler(http.MethodGet, "/services", stdChain.ThenFunc(app.listServicesHandler))
+	router.Handler(http.MethodPost, "/services", authorizedChain.ThenFunc(app.createServiceHandler))
+	router.Handler(http.MethodGet, "/services/:id", stdChain.ThenFunc(app.showServiceHandler))
+	router.Handler(http.MethodPatch, "/services/:id", authorizedChain.ThenFunc(app.updateServiceHandler))
+	router.Handler(http.MethodDelete, "/services/:id", authorizedChain.ThenFunc(app.deleteServiceHandler))
+
+	router.Handler(http.MethodGet, "/services_with_subcategories/:id", stdChain.ThenFunc(app.listServicesWithSubcategoriesByCategory))
 	// users routes
-	router.HandlerFunc(http.MethodPost, "/user/register", app.registerUserHandler)
-	router.HandlerFunc(http.MethodGet, "/user/login", app.loginHandler)
-	router.HandlerFunc(http.MethodGet, "/user/logout", app.logoutHandler)
-	router.HandlerFunc(http.MethodGet, "/healthcheck", app.healthcheckHandler)
+	router.Handler(http.MethodPost, "/user/register", authorizedChain.ThenFunc(app.registerUserHandler))
+	router.Handler(http.MethodGet, "/user/login", stdChain.ThenFunc(app.loginHandler))
+	router.Handler(http.MethodGet, "/user/logout", authorizedChain.ThenFunc(app.logoutHandler))
+	router.Handler(http.MethodGet, "/healthcheck", authorizedChain.ThenFunc(app.healthcheckHandler))
 
 	return app.recoverPanic(app.rateLimit(app.secureHeaders(router)))
 }
