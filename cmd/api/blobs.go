@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"mime/multipart"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -28,20 +30,28 @@ func (abs *AzureBlobStorage) UploadBlob(blobName string, file *multipart.File) e
 	if err != nil {
 		return err
 	}
-	_, err = abs.client.UploadBuffer(abs.ctx, containerName, blobName, buffer, &azblob.UploadBufferOptions{})
-	if err != nil {
-		return err
+
+	for i := 1; i <= 3; i++ {
+		_, err := abs.client.UploadBuffer(abs.ctx, containerName, blobName, buffer, &azblob.UploadBufferOptions{})
+		if nil == err {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
 	}
 
-	return nil
+	return errors.New("failed to upload a blob after 3 attempts")
 
 }
 
 func (abs *AzureBlobStorage) DeleteBlob(blobName string) error {
-	_, err := abs.client.DeleteBlob(abs.ctx, containerName, blobName, nil)
-	if err != nil {
-		return err
+
+	for i := 1; i <= 3; i++ {
+		_, err := abs.client.DeleteBlob(abs.ctx, containerName, blobName, nil)
+		if nil == err {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
 	}
-	return nil
+	return errors.New("failed to delete a blob after 3 attempts")
 
 }
