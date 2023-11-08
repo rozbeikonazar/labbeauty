@@ -82,6 +82,10 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if !user.Activated {
+		app.inactiveAccountResponse(w, r)
+		return
+	}
 	match, err := user.Password.Matches(input.Password)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
