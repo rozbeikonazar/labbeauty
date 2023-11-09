@@ -14,7 +14,6 @@ func (app *application) routes() http.Handler {
 	fileServer := http.FileServer(http.Dir("./ui/static"))
 	authorizedChain := alice.New(app.recoverPanic, app.rateLimit, app.secureHeaders, app.checkAuth)
 	stdChain := alice.New(app.recoverPanic, app.rateLimit, app.secureHeaders)
-
 	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
 	// categories routesstdChain(
 	router.Handler(http.MethodGet, "/categories", stdChain.ThenFunc(app.listCategoriesHanlder))
@@ -38,9 +37,10 @@ func (app *application) routes() http.Handler {
 	router.Handler(http.MethodGet, "/services_with_subcategories/:id", stdChain.ThenFunc(app.listServicesWithSubcategoriesByCategory))
 	// users routes
 	router.Handler(http.MethodPost, "/user/register", authorizedChain.ThenFunc(app.registerUserHandler))
-	router.Handler(http.MethodGet, "/user/login", stdChain.ThenFunc(app.loginHandler))
+	router.Handler(http.MethodPost, "/user/login", stdChain.ThenFunc(app.loginHandler))
+	// TODO change logout to POST
 	router.Handler(http.MethodGet, "/user/logout", authorizedChain.ThenFunc(app.logoutHandler))
 	router.Handler(http.MethodGet, "/healthcheck", authorizedChain.ThenFunc(app.healthcheckHandler))
 
-	return app.recoverPanic(app.rateLimit(app.secureHeaders(router)))
+	return router
 }
