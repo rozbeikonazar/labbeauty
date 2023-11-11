@@ -130,3 +130,13 @@ func (app *application) background(fn func()) {
 		fn()
 	}()
 }
+
+func (app *application) sendToBot(message string) error {
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage?chat_id=%v&text=%s", botToken, chatID, message)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
