@@ -19,6 +19,8 @@ import (
 var (
 	blobURL       = goDotEnvVariable("BLOB_URL")
 	containerName = goDotEnvVariable("CONTAINER_NAME")
+	botToken      = goDotEnvVariable("botToken")
+	chatID        = goDotEnvVariable("chatID")
 )
 
 type config struct {
