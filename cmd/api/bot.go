@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"cosmetcab.dp.ua/internal/validator"
 )
@@ -35,8 +36,11 @@ func (app *application) sendToTelegramHandler(w http.ResponseWriter, r *http.Req
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	formattedMessage := fmt.Sprintf("Нове повідомлення від користувача:\n\nІм'я: %s\nТелефон: %s\nПовідомлення: %s", input.Name, input.Phone, input.Message)
-	err = app.sendToBot(formattedMessage)
+	formattedMessage := fmt.Sprintf("Ім'я: %s\nТелефон: %s\nПовідомлення: %s", input.Name, input.Phone, input.Message)
+	// encode formatted message so it can be safely placed inside url query
+	encodedMessage := url.QueryEscape(formattedMessage)
+
+	err = app.sendToBot(encodedMessage)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
