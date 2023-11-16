@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -139,4 +140,14 @@ func (app *application) sendToBot(message string) error {
 	}
 	defer resp.Body.Close()
 	return nil
+}
+
+func (app *application) logAndSendErr(message, resource string, err error) {
+	app.logger.Error(err.Error())
+	errMessage := fmt.Sprintf("Error: %s with name or path %s", message, resource)
+	// encode formatted message so it can be safely placed inside url query
+	encodedErrMessage := url.QueryEscape(errMessage)
+	if sendErr := app.sendToBot(encodedErrMessage); sendErr != nil {
+		app.logger.Error("Error sending message to Telegram: %v", sendErr)
+	}
 }
