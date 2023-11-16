@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"cosmetcab.dp.ua/internal/data"
 	"cosmetcab.dp.ua/internal/validator"
@@ -31,16 +32,6 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	// upload image in a background goroutine
-	app.background(func() {
-		err = app.azureBlobStorage.UploadBlob(fileName, &file)
-		if err != nil {
-			// if image could not be uploaded, log error
-			app.logger.Error(err.Error())
-			// TODO also send error message to telegram
-
-		}
-	})
 
 	var input struct {
 		Title       string `json:"title"`
@@ -58,29 +49,32 @@ func (app *application) createCategoryHandler(w http.ResponseWriter, r *http.Req
 	}
 	v := validator.New()
 	if data.ValidateCategory(category, v); !v.Valid() {
-		// delete image in a background goroutine
-
-		app.background(func() {
-			err = app.azureBlobStorage.DeleteBlob(fileName)
-			if err != nil {
-				app.logger.Error(err.Error())
-				// TODO mark this blob for deletion later
-
-			}
-		})
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
+	var wg sync.WaitGroup
+	// If validation is correct then we can upload image in a background goroutine
+	app.background(func() {
+		defer wg.Done()
+		wg.Add(1)
+		uplErr := app.azureBlobStorage.UploadBlob(fileName, &file)
+		if uplErr != nil {
+			// if image could not be uploaded, log error and send it to telegram
+			app.logAndSendErr("image was not uploaded", header.Filename, uplErr)
+
+		}
+	})
 
 	err = app.models.Categories.Insert(category)
 	if err != nil {
 		// if err occured while saving to DB, perform deletion in a background goroutine
 		// of image that have been saved to blob storage
 		app.background(func() {
+			// wait for uploading to finish
+			wg.Wait()
 			delErr := app.azureBlobStorage.DeleteBlob(fileName)
 			if delErr != nil {
-				app.logger.Error(err.Error())
-				// TODO mark this blob for deletion later
+				app.logAndSendErr("image was not deleted", header.Filename, delErr)
 
 			}
 		})
@@ -179,9 +173,7 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		app.background(func() {
 			err = app.azureBlobStorage.DeleteBlob(blobName[1])
 			if err != nil {
-				app.logger.Error(err.Error())
-				// TODO mark this blob for deletion later
-
+				app.logAndSendErr("image was not deleted", photoURL, err)
 			}
 		})
 		// upload new image in a background goroutine
@@ -189,12 +181,13 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		app.background(func() {
 			err = app.azureBlobStorage.UploadBlob(fileName, &file)
 			if err != nil {
-				app.logger.Error(err.Error())
-				// TODO also send error message to telegram
+				app.logAndSendErr("image was not uploaded", header.Filename, err)
+
 			}
 		})
-		category.PhotoURL = blobURL + containerName + fileName
 		defer file.Close()
+		category.PhotoURL = blobURL + containerName + fileName
+
 	}
 
 	title := r.FormValue("title")
@@ -247,10 +240,9 @@ func (app *application) deleteCategoryHandler(w http.ResponseWriter, r *http.Req
 	blobName := strings.Split(photoURL, containerName)
 
 	app.background(func() {
-		err = app.azureBlobStorage.DeleteBlob(blobName[1])
-		if err != nil {
-			app.logger.Error(err.Error())
-			// TODO mark this blob for deletion later
+		delErr := app.azureBlobStorage.DeleteBlob(blobName[1])
+		if delErr != nil {
+			app.logAndSendErr("image was not deleted", photoURL, delErr)
 		}
 	})
 	err = app.writeJSON(w, http.StatusAccepted, envelope{"message": "category successfully deleted"}, nil)
