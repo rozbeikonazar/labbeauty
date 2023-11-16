@@ -152,44 +152,6 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Retrieve the file from the form data.
-	// The 'photo' key corresponds to the 'name' attribute
-	// of the file input field in the form
-	file, header, err := r.FormFile("photo")
-	if err == nil {
-		// this means user specified the file and therefore
-		// we need to upload it to the blob
-		fileName, err := generateUniqueImageName(header.Filename)
-		if err != nil {
-			app.badRequestResponse(w, r, err)
-			return
-		}
-		// if file provided has supported extension, we have to delete previous blob
-		// before uploading a new one
-		photoURL := category.PhotoURL
-		// split photoURL to get blobName
-		blobName := strings.Split(photoURL, containerName)
-		// delete old image in a background goroutine
-		app.background(func() {
-			err = app.azureBlobStorage.DeleteBlob(blobName[1])
-			if err != nil {
-				app.logAndSendErr("image was not deleted", photoURL, err)
-			}
-		})
-		// upload new image in a background goroutine
-
-		app.background(func() {
-			err = app.azureBlobStorage.UploadBlob(fileName, &file)
-			if err != nil {
-				app.logAndSendErr("image was not uploaded", header.Filename, err)
-
-			}
-		})
-		defer file.Close()
-		category.PhotoURL = blobURL + containerName + fileName
-
-	}
-
 	title := r.FormValue("title")
 	if title != "" {
 		category.Title = title
@@ -204,6 +166,43 @@ func (app *application) updateCategoryHandler(w http.ResponseWriter, r *http.Req
 	if data.ValidateCategory(category, v); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
+	}
+	// Retrieve the file from the form data.
+	// The 'photo' key corresponds to the 'name' attribute
+	// of the file input field in the form
+	file, header, err := r.FormFile("photo")
+	if nil == err {
+		// this means user specified the file and therefore
+		// we need to upload it to the blob
+		defer file.Close()
+		fileName, err := generateUniqueImageName(header.Filename)
+		if err != nil {
+			app.badRequestResponse(w, r, err)
+			return
+		}
+		// if file provided has supported extension, we have to delete previous blob
+		// before uploading a new one
+		photoURL := category.PhotoURL
+		// split photoURL to get blobName
+		blobName := strings.Split(photoURL, containerName)
+		// delete old image in a background goroutine
+		app.background(func() {
+			delErr := app.azureBlobStorage.DeleteBlob(blobName[1])
+			if delErr != nil {
+				app.logAndSendErr("image was not deleted", photoURL, delErr)
+			}
+		})
+		// upload new image in a background goroutine
+
+		app.background(func() {
+			uplErr := app.azureBlobStorage.UploadBlob(fileName, &file)
+			if uplErr != nil {
+				app.logAndSendErr("image was not uploaded", header.Filename, uplErr)
+
+			}
+		})
+		category.PhotoURL = blobURL + containerName + fileName
+
 	}
 
 	err = app.models.Categories.Update(category)
